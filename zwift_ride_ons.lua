@@ -1,4 +1,3 @@
-
 --------------------------------------------------------------------------------------------
 -- 0.01 Matt Page 18/05/2020 - first version.
 -- 0.02 Matt Page 20/05/2020 - Added output for Ride on count.
@@ -8,11 +7,16 @@
 -- 0.06 Matt Page 25/05/2020 - Added reset() called when a new log file is detected.
 -- 0.07 Matt Page 26/05/2020 - Added reset button to ui and changed reset behaviour to reset every time source is activated.
 -- 0.08 Matt Page 26/05/2020 - ensure ride ons given update when none are received..
-
+-- 0.09 Matt Page 27/05/2020 - tidy up directory references
+--
 -- Add script to OBS studio - parses the Zwift log file recording received ride ons.
 -- log file directory and other parameters can be updated via OBS studio UI
--- Can't seem to get a path to populate the UI by default, the script will assume homedrive\homepath\documents\Zwift\Logs\Log.txt if not set in UI
+-- Can't seem to get a path to populate the UI by default, the script will assumes a default directory if one has not set in UI
+-- On Windows 10, this will be something like C:\Users\USerName\Documents\Zwift\Logs\Log.txt
+-- Parsing the log file starts when any mapped source is activated and stops when one is deactivated
+-- Reset button also disables reading the log file.
 --------------------------------------------------------------------------------------------
+
 obs = obslua
 source_name   = ""
 activated = false
@@ -22,10 +26,9 @@ ride_ons = {}
 total_ride_ons_given = 0
 last_end_pos = 0
 log_directory = ""
-ld_default = os.getenv("HOMEDRIVE") .. os.getenv("HOMEPATH").."/Documents/Zwift/Logs/Log.txt"
-ld_conv_s = string.gsub(ld_default, "\\", "/")
+log_default = os.getenv("HOMEDRIVE") .. os.getenv("HOMEPATH").."\\Documents\\Zwift\\Logs\\Log.txt"
 end_of_file = 0
-file_check_sleep_time = 1
+file_check_sleep_time = 5
 release_ride_on_interval = 1
 last_index = 0
 last_ride_on = ""
@@ -212,11 +215,9 @@ function script_update(settings)
 	total_ride_ons_given_source_name = obs.obs_data_get_string(settings, "total_ride_ons_given_source")
 
 	if obs.obs_data_get_string(settings, "log_file_location") ~= "" then
-		print("obs loc: " .. obs.obs_data_get_string(settings, "log_file_location"))
 		log_directory = obs.obs_data_get_string(settings, "log_file_location")
 	else
-		log_directory = ld_conv_s
-		print("obs loc: " .. log_directory)
+		log_directory = log_default
 	end
 
 end

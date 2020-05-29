@@ -15,3 +15,4 @@ Deactivating and reactivating one of the sources will reset the values and cause
 
 If the script detects a log file that has shrunk it will also reset (possible if you leave it running through multiple Zwift sessions)
 
+Added the option to control how many ride on names are show on screen at once.  These are replaced one at a time at the interval set with the eariest dropping off the list when the maximum is reached.

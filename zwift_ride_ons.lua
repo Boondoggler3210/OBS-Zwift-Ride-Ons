@@ -8,11 +8,12 @@
 -- 0.07 Matt Page 26/05/2020 - Added reset button to ui and changed reset behaviour to reset every time source is activated.
 -- 0.08 Matt Page 26/05/2020 - ensure ride ons given update when none are received..
 -- 0.09 Matt Page 27/05/2020 - tidy up directory references
---
+-- 0.10 Matt Page 29/05/2020 - Added option to display list n of most recent ride ons.
+
 -- Add script to OBS studio - parses the Zwift log file recording received ride ons.
 -- log file directory and other parameters can be updated via OBS studio UI
 -- Can't seem to get a path to populate the UI by default, the script will assumes a default directory if one has not set in UI
--- On Windows 10, this will be something like C:\Users\USerName\Documents\Zwift\Logs\Log.txt
+-- On Windows 10, this will be something like C:\Users\UserName\Documents\Zwift\Logs\Log.txt
 -- Parsing the log file starts when any mapped source is activated and stops when one is deactivated
 -- Reset button also disables reading the log file.
 --------------------------------------------------------------------------------------------
@@ -32,7 +33,10 @@ file_check_sleep_time = 5
 release_ride_on_interval = 1
 last_index = 0
 last_ride_on = ""
-
+number_of_names = 1
+names_list = {}
+list_size = 0
+last_name = ""
 --------------------------------------------------------------------------------------------
 
 -- Set the ride On giver name text, update the ride on count and total Ride Ons given
@@ -159,6 +163,7 @@ function script_properties()
 	obs.obs_properties_add_path(props, "log_file_location", "Location of Zwift Log File", obs.OBS_PATH_FILE,("*.txt"),nil)
 	obs.obs_properties_add_int(props, "ride_on_update_interval", "Min Time to Display Ride On", 1, 100000, 1)
 	obs.obs_properties_add_int(props, "file_check_interval", "Check Interval", 1, 100000, 1)
+	obs.obs_properties_add_int(props, "number_of_names_to_display", "Max names to display", 1, 1000, 1)
 
 	local p = obs.obs_properties_add_list(props, "source", "Ride On Source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
 	local q = obs.obs_properties_add_list(props, "ride_on_count_source", "Total Ride Ons Source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
@@ -194,7 +199,8 @@ end
 function script_defaults(settings)
 	obs.obs_data_set_default_int(settings, "ride_on_update_interval", file_check_sleep_time)
 	obs.obs_data_set_default_int(settings, "file_check_interval", release_ride_on_interval)
-end
+	obs.obs_data_set_default_int(settings, "number_of_names_to_display", number_of_names)
+	end
 
 
 -- A function named script_description returns the description shown to
@@ -210,6 +216,7 @@ function script_update(settings)
 
 	release_ride_on_interval = obs.obs_data_get_int(settings, "ride_on_update_interval")
 	file_check_sleep_time = obs.obs_data_get_int(settings, "file_check_interval")
+	number_of_names = obs.obs_data_get_int(settings, "number_of_names_to_display")
 	source_name = obs.obs_data_get_string(settings, "source")
 	ride_on_count_source_name = obs.obs_data_get_string(settings, "ride_on_count_source")
 	total_ride_ons_given_source_name = obs.obs_data_get_string(settings, "total_ride_ons_given_source")
@@ -268,10 +275,29 @@ end
 -- rate is controlled using the release_ride_on_interval value from properties
 function release_ride_on()
 	local row_count = ride_on_count
+	local ride_on_names_list = ""
+	local list_size = 1
 	if (row_count == 0) then
 		set_ride_on_text("")
 	else
-		set_ride_on_text(ride_ons[last_index])
+		for _,_ in ipairs(names_list) do
+			list_size = list_size +1
+		end
+
+		if list_size <= (number_of_names) then
+			table.insert(names_list, 1, ride_ons[last_index])
+
+		elseif ride_ons[last_index] ~= last_name then
+				table.insert(names_list, 1, ride_ons[last_index])
+				table.remove(names_list, list_size)
+		end
+
+		for key, value in ipairs(names_list) do
+				ride_on_names_list = ride_on_names_list..value.."\n"
+		end
+		set_ride_on_text(ride_on_names_list)
+		last_name = ride_ons[last_index]
+
 		if last_index == ride_on_count then
 			last_index = last_index
 		else

@@ -9,6 +9,7 @@
 -- 0.08 Matt Page 26/05/2020 - ensure ride ons given update when none are received..
 -- 0.09 Matt Page 27/05/2020 - tidy up directory references
 -- 0.10 Matt Page 29/05/2020 - Added option to display list n of most recent ride ons.
+-- 0.11 Matt Page 30/05/2020 - Fixed issue where most recent ride on name was repeated until limit reached
 
 -- Add script to OBS studio - parses the Zwift log file recording received ride ons.
 -- log file directory and other parameters can be updated via OBS studio UI
@@ -284,7 +285,7 @@ function release_ride_on()
 			list_size = list_size +1
 		end
 
-		if list_size <= (number_of_names) then
+		if list_size <= (number_of_names) and ride_ons[last_index] ~= last_name then
 			table.insert(names_list, 1, ride_ons[last_index])
 
 		elseif ride_ons[last_index] ~= last_name then

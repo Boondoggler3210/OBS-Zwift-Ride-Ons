@@ -17,11 +17,17 @@
 -- 0.16 Matt Page 15/06/2020 - Added reset for lap counter when current route changes
 -- 0.17 Matt Page 15/06/2020 - Changed activation logic - added an enalbed flag in script settings - no longer controlled by activating /deactivating a source
 -- 0.18 Matt Page 15/06/2020 - Changed types for timing of file check and displkay time for ride on names - support down to 100ms
+-- 0.19 Matt Page 02/07/2020 - Added parsing for Chat messages with option to filter by user Zwift ID.
+-- 0.20 Matt Page 02/07/2020 - Added parsing for Timining Arch lines in log file, outputs name, time and avg power. Name not always populated.
+-- 0.21 Matt Page 05/07/2020 - Fixed issue where ride ons and route would not reset on loading script.
+
 
 -- Add script to OBS studio - parses the Zwift log file recording received ride ons.
 -- log file directory and other parameters can be updated via OBS studio UI
 -- Can't seem to get a path to populate the UI by default, the script will assumes a default directory if one has not set in UI
 -- On Windows 10, this will be something like C:\Users\UserName\Documents\Zwift\Logs\Log.txt
+-- Parsing the log file starts when any mapped source is activated and stops when one is deactivated
+-- Reset button also disables reading the log file.
 --------------------------------------------------------------------------------------------
 
 obs = obslua
@@ -55,13 +61,20 @@ route_length = 0
 route_leadin = 0
 route_ascent = 0
 route_stats_source_name = ""
+chat_user_ids = ""
+chat_text = ""
+chat_text_source_name = ""
+chat_count = 0
+segment_comp = ""
+segment_comp_source_name = ""
+
 --------------------------------------------------------------------------------------------
 
 -- Set the ride On giver name text, update the ride on count and total Ride Ons given
 function set_ride_on_text(tt)
-
+-- print(segment_comp)
 	local latest_ride_on = tt
-	if latest_ride_on ~= last_ride_on then
+	if latest_ride_on ~= last_ride_on or latest_ride_on == "" then
       local source = obs.obs_get_source_by_name(ride_on_names_source_name)
          if source ~= nil then
             local settings = obs.obs_data_create()
@@ -84,11 +97,6 @@ function set_ride_on_text(tt)
 
 	local source = obs.obs_get_source_by_name(route_stats_source_name)
 	if source ~= nil then
-		route_length_kilometers = round(route_length/100000,2)
-		route_leadin_kilometers = round(route_leadin/100000, 2)
-		route_ascent_meters = round(route_ascent/100, 0)
-		route_stats = "Length: "..route_length_kilometers.."km\nLead-in: "..route_leadin_kilometers.."km\nAscent: "..route_ascent_meters.."m"
-
 		local settings = obs.obs_data_create()
 		obs.obs_data_set_string(settings, "text", route_stats)
 		obs.obs_source_update(source, settings)
@@ -122,6 +130,24 @@ function set_ride_on_text(tt)
 		obs.obs_data_release(settings)
 		obs.obs_source_release(source)
 	end
+
+	local source = obs.obs_get_source_by_name(chat_text_source_name)
+	if source ~= nil then
+		local settings = obs.obs_data_create()
+		obs.obs_data_set_string(settings, "text", chat_text)
+		obs.obs_source_update(source, settings)
+		obs.obs_data_release(settings)
+		obs.obs_source_release(source)
+	end
+
+	local source = obs.obs_get_source_by_name(segment_comp_source_name)
+	if source ~= nil then
+		local settings = obs.obs_data_create()
+		obs.obs_data_set_string(settings, "text", segment_comp)
+		obs.obs_source_update(source, settings)
+		obs.obs_data_release(settings)
+		obs.obs_source_release(source)
+	end
 end
 
 
@@ -137,7 +163,7 @@ function file_check_callback()
 			return
 		elseif last_end_pos > end_of_file then
 			last_end_pos = 0
-			reset()
+			reset(true)
 			get_ride_ons()
 		else
 			get_ride_ons()
@@ -155,14 +181,13 @@ end
 
 function activate(activating)
 	if enabled == true then
-		active = activating
+--		active = activating
 		if activating then
 			last_end_pos = 0
 			last_index = 0
 			ride_ons = {}
 			ride_on_count = 0
 			total_ride_ons_given = 0
-			set_ride_on_text("")
 			lap_count = 0
 			route_length_kilometers = 0
 			route_leadin_kilometers = 0
@@ -171,12 +196,17 @@ function activate(activating)
 			route_leadin = 0
 			route_ascent = 0
 			route_stats = ""
-			current_route =""
-			local file_check_sleep_time_MS = file_check_sleep_time*1000
+            current_route = ""
+            chat_text = ""
+			chat_count = 0
+			segment_comp = ""
+            local file_check_sleep_time_MS = file_check_sleep_time*1000
 			local release_ride_on_interval_MS = release_ride_on_interval*1000
-
+			set_ride_on_text("")
 			obs.timer_add(file_check_callback, file_check_sleep_time_MS)
 			obs.timer_add(release_ride_on_callback, release_ride_on_interval_MS)
+			--release_ride_on()
+			-- ADD A CALLBACK TO POPULATE OTHER VALUES AND MOVE OTHER VALUES OUTSIDE OF THE SET RIDE ON TEXT FUNCTION
 		else
 			obs.timer_remove(file_check_callback)
 			obs.timer_remove(release_ride_on_callback)
@@ -195,6 +225,7 @@ function script_properties()
 	obs.obs_properties_add_float(props, "ride_on_update_interval", "Min Time to Display Ride On", 0.1, 100000, 0.1)
 	obs.obs_properties_add_float(props, "file_check_interval", "Check Interval", 0.1, 100000, 0.1)
 	obs.obs_properties_add_int(props, "number_of_names_to_display", "Max names to display", 1, 1000, 1)
+	obs.obs_properties_add_text(props, "chat_user_ids", "Chat users to display", obs.OBS_TEXT_MULTILINE)
 
 	local p = obs.obs_properties_add_list(props, "ride_on_names_source_name", "Ride On Source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
 	local q = obs.obs_properties_add_list(props, "ride_on_count_source_name", "Total Ride Ons Source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
@@ -202,6 +233,8 @@ function script_properties()
 	local s = obs.obs_properties_add_list(props, "lap_count_source_name", "Lap Counter Source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
 	local t = obs.obs_properties_add_list(props, "current_route_source_name", "Current Route Source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
 	local u = obs.obs_properties_add_list(props, "route_stats_source_name", "Current Route Stats Source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+	local v = obs.obs_properties_add_list(props, "chat_text_source_name", "Chat Messages Source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+	local w = obs.obs_properties_add_list(props, "segment_comp_source_name", "Segment Completed Source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
 
 	local sources = obs.obs_enum_sources()
 	if sources ~= nil then
@@ -215,13 +248,14 @@ function script_properties()
 				obs.obs_property_list_add_string(s, name, name)
 				obs.obs_property_list_add_string(t, name, name)
 				obs.obs_property_list_add_string(u, name, name)
+				obs.obs_property_list_add_string(v, name, name)
+				obs.obs_property_list_add_string(w, name, name)
 			end
 		end
 	end
 	obs.source_list_release(sources)
 	obs.obs_properties_add_bool(props, "display_current_lap", "Display Current Lap")
 	obs.obs_properties_add_button(props, "reset_button", "Reset Values", reset_button_clicked)
-
 	return props
 end
 
@@ -233,6 +267,7 @@ function script_defaults(settings)
 	obs.obs_data_set_default_int(settings, "number_of_names_to_display", number_of_names)
 	obs.obs_data_set_default_bool(settings, "display_current_lap", display_current_lap)
 	obs.obs_data_set_default_bool(settings, "enabled", enabled)
+	obs.obs_data_set_default_string(settings, "chat_user_ids", chat_user_ids)
 end
 
 
@@ -257,6 +292,9 @@ function script_update(settings)
 	current_route_source_name = obs.obs_data_get_string(settings, "current_route_source_name")
 	route_stats_source_name = obs.obs_data_get_string(settings, "route_stats_source_name")
 	display_current_lap = obs.obs_data_get_bool(settings, "display_current_lap")
+	chat_text_source_name = obs.obs_data_get_string(settings, "chat_text_source_name")
+	chat_user_ids = obs.obs_data_get_string(settings, "chat_user_ids")
+	segment_comp_source_name = obs.obs_data_get_string(settings, "segment_comp_source_name")
 	enabled = obs.obs_data_get_bool(settings, "enabled")
 
 	if obs.obs_data_get_string(settings, "log_file_location") ~= "" then
@@ -264,12 +302,15 @@ function script_update(settings)
 	else
 		log_directory = log_default
 	end
+    
+    reset(true)
 
 end
 
 
 -- A function named script_load will be called on startup
 function script_load(settings)
+	reset(true)
 	-- Connect activation/deactivation signal callbacks
 	local sh = obs.obs_get_signal_handler()
 	obs.signal_handler_connect(sh, "source_activate", source_activated)
@@ -302,7 +343,7 @@ function get_ride_ons()
 				j = j+1
 				total_ride_ons_given = string.sub(line, j)
 			elseif string.match(line, "Current Lap: ") then
-				local i, j = string.find(line, "Lap: %d,")
+				local i, j = string.find(line, "Lap: %d+,")
 				if display_current_lap == true then
 					lap_count = string.sub(line, i+5, j-1)
 					lap_count = lap_count + 1
@@ -328,8 +369,50 @@ function get_ride_ons()
 				local k, l = string.find(line, "%d*%d.?%d+cm leadin")
 				route_leadin = string.sub(line, k,l-9)
 				local m, n = string.find(line, "%d*%d.?%d+cm ascent")
-				route_ascent = string.sub(line, m,n-9)
+                route_ascent = string.sub(line, m,n-9)
+                
+                route_length_kilometers = round(route_length/100000,2)
+                route_leadin_kilometers = round(route_leadin/100000, 2)
+                route_ascent_meters = round(route_ascent/100, 0)
+                route_stats = "Length: "..route_length_kilometers.."km\nLead-in: "..route_leadin_kilometers.."km\nAscent: "..route_ascent_meters.."m"
+
+			elseif string.match(line, "Chat: ") then
+				local i, j = string.find(line, "%s%d+%s%(World%):")
+                local chat_user_id = string.sub(line, i+1, j-9)
+                local k, l = string.find(line,"Chat: .-%s%d+")
+                local m, n = string.find(line, "World%): ")
+				local chat_user_name = string.sub(line, k+6, l)
+				local chat_user_name = string.gsub(chat_user_name, "%s%d+$", "")
+				local chat_message = string.sub(line, n+1)
+                if chat_user_ids ~= "" then
+                    if string.match(chat_user_ids, chat_user_id) then
+						chat_text = chat_text..chat_user_name..": "..chat_message.."\n"
+						chat_count = chat_count + 1
+					else
+					--	break
+					end 
+                else
+					chat_text = chat_text..chat_user_name..": "..chat_message.."\n"
+					chat_count = chat_count + 1 
+                end
+			elseif string.match(line, "TimingArch:") then
+				local i, j = string.find(line,"line for %a")
+				if j ~= nil then
+					arch_name = string.sub(line, j)
+				else
+					arch_name = "Arch with No name"
 				end
+			elseif string.match(line, "TIMING ARCH:") then
+				local i, j = string.find(line, "in %d+%.%d+%s%a+")
+				local k, l = string.find(line, "%s%(avg watts %d+%.%d+%)")
+				local comp_time = string.sub(line, i+3, j)
+				local comp_avg_power = string.sub(line, k+2, l-1)
+				if comp_time ~= nil and comp_avg_power ~= nil then
+					segment_comp = "Crossed the "..arch_name.." arch and completed segment in "..comp_time.." with "..comp_avg_power.."\n"
+				else
+					segment_comp = segment_comp
+				end 
+			end
 		end
 	else
 		print("Log file does not exist or cannot be opened. Log file Directory: " .. log_directory)
@@ -340,10 +423,9 @@ end
 -- Controls the output of ride on names based on the ride_on_update_interval reading out from table ride_ons
 -- rate is controlled using the release_ride_on_interval value from properties
 function release_ride_on()
-	local row_count = ride_on_count
 	local ride_on_names_list = ""
 	local list_size = 1
-	if (row_count == 0) then
+	if (ride_on_count == 0) then
 		set_ride_on_text("")
 	else
 		for _,_ in ipairs(names_list) do

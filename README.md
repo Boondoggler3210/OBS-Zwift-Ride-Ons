@@ -7,8 +7,10 @@ OBS Studio Lua script that monitors a Zwift log file.  Extracts the below info a
 4. Current Route Name
 5. Route Length, Leadin and Ascent 
 6. Lap Counter
-7. Chat messages - optionally filtered by Zwift Users ID - enter IDs as comma separated list
+7. Chat messages - optionally filtered by Zwift Users ID - enter IDs as comma separated list and filter by type
 8. Timing Arch messages
+9. 'says Ride On!' in ride on names message now optional
+10. Added Event name
 
 Updates OBS text sources with each value at a user definable interval. 
 
@@ -22,7 +24,11 @@ If the script detects a log file that has shrunk it will also reset (possible if
 
 Added the option to control how many ride on names are show on screen at once.  These are replaced one at a time at the interval set with the eariest dropping off the list when the maximum is reached.
 
-Updated Since version 0.18
--- 0.19  - Added parsing for Chat messages with option to filter by user Zwift ID.
--- 0.20  - Added parsing for Timining Arch lines in log file, outputs name, time and avg power. Name not always populated.
--- 0.21  - Fixed issue where ride ons and route would not reset on loading script.
+Updated Since version 0.21
+-- 0.22 - Restructured function that writes output to text sources to make more compact
+-- 0.23 - Made text displayed after the name of user giving ride on user definable - will deafuly to ' says Ride On!'
+-- 0.24 - Changed Lap counter logic, now ignores the log files lap count figure as this lags behind the game. 
+-- 0.25 - Added mitigation for strings not found where changing character position causes arithmetic issues. 
+-- 0.26 - Added option to include or exclude chat types (world, Paddock and GroupEvent)
+-- 0.27 - Added formatting to arch timing and changed output string to be more concise. 
+-- 0.28 - Added parsing for group event name and name of subgroup

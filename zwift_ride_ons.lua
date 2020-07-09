@@ -27,6 +27,7 @@
 -- 0.26 Matt Page 07/07/2020 - Added option to include or exclude chat types (world, Paddock and GroupEvent)
 -- 0.27 Matt Page 08/07/2020 - Added formatting to arch timing and changed output string to be more concise. 
 -- 0.28 Matt Page 08/07/2020 - Added parsing for group event name and name of subgroup
+-- 0.29 Matt Page 09/07/2020 - Added mitigation for when obs_source_get_unversioned_id returns a nil
 
 -- Add script to OBS studio - parses the Zwift log file recording received ride ons.
 -- log file directory and other parameters can be updated via OBS studio UI
@@ -218,18 +219,20 @@ function script_properties()
 	if sources ~= nil then
 		for _, source in ipairs(sources) do
 			local source_id = obs.obs_source_get_unversioned_id(source)
-			if source_id == "text_gdiplus" or source_id == "text_ft2_source" then
-				local name = obs.obs_source_get_name(source)
-				obs.obs_property_list_add_string(p, name, name)
-				obs.obs_property_list_add_string(q, name, name)
-				obs.obs_property_list_add_string(r, name, name)
-				obs.obs_property_list_add_string(s, name, name)
-				obs.obs_property_list_add_string(t, name, name)
-				obs.obs_property_list_add_string(u, name, name)
-				obs.obs_property_list_add_string(v, name, name)
-                obs.obs_property_list_add_string(w, name, name)
-                obs.obs_property_list_add_string(x, name, name)
-                obs.obs_property_list_add_string(y, name, name)
+			if source_id ~= nil then 
+				if source_id == "text_gdiplus" or source_id == "text_ft2_source" then
+					local name = obs.obs_source_get_name(source)
+					obs.obs_property_list_add_string(p, name, name)
+					obs.obs_property_list_add_string(q, name, name)
+					obs.obs_property_list_add_string(r, name, name)
+					obs.obs_property_list_add_string(s, name, name)
+					obs.obs_property_list_add_string(t, name, name)
+					obs.obs_property_list_add_string(u, name, name)
+					obs.obs_property_list_add_string(v, name, name)
+    	            obs.obs_property_list_add_string(w, name, name)
+    	            obs.obs_property_list_add_string(x, name, name)
+       	         	obs.obs_property_list_add_string(y, name, name)
+				end
 			end
 		end
 	end

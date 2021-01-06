@@ -32,3 +32,5 @@ Updated Since version 0.21
 -- 0.26 - Added option to include or exclude chat types (world, Paddock and GroupEvent)
 -- 0.27 - Added formatting to arch timing and changed output string to be more concise. 
 -- 0.28 - Added parsing for group event name and name of subgroup
+-- 0.29 - Added mitigation if obs_source_get_unversioned_id returns nil
+-- 0.30 - Added logic for setting default log file location to avoid script failing on MacOS

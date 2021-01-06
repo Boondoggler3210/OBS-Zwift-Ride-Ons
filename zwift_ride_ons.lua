@@ -22,12 +22,13 @@
 -- 0.21 Matt Page 05/07/2020 - Fixed issue where ride ons and route would not reset on loading script.
 -- 0.22 Matt Page 06/07/2020 - Restructured function that writes output to text sources to make more compact
 -- 0.23 Matt Page 06/07/2020 - Made text displayed after the name of user giving ride on user definable - will deafuly to ' says Ride On!'
--- 0.24 Matt Page 06/07/2020 - Changed Lap counter logic, now ignores the log files lap count figure as this lags behind the game. 
--- 0.25 Matt Page 06/07/2020 - Added mitigation for strings not found where changing character position causes arithmetic issues. 
+-- 0.24 Matt Page 06/07/2020 - Changed Lap counter logic, now ignores the log files lap count figure as this lags behind the game.
+-- 0.25 Matt Page 06/07/2020 - Added mitigation for strings not found where changing character position causes arithmetic issues.
 -- 0.26 Matt Page 07/07/2020 - Added option to include or exclude chat types (world, Paddock and GroupEvent)
--- 0.27 Matt Page 08/07/2020 - Added formatting to arch timing and changed output string to be more concise. 
+-- 0.27 Matt Page 08/07/2020 - Added formatting to arch timing and changed output string to be more concise.
 -- 0.28 Matt Page 08/07/2020 - Added parsing for group event name and name of subgroup
 -- 0.29 Matt Page 09/07/2020 - Added mitigation for when obs_source_get_unversioned_id returns a nil
+-- 0.30 Matt Page 06/01/2021 - Added logic for setting the default log file location to avoid failure on MacOS - thanks leventyalcin
 
 -- Add script to OBS studio - parses the Zwift log file recording received ride ons.
 -- log file directory and other parameters can be updated via OBS studio UI
@@ -42,7 +43,7 @@ enabled = false
 active = false
 last_end_pos = 0
 log_directory = ""
-log_default = os.getenv("HOMEDRIVE") .. os.getenv("HOMEPATH").."\\Documents\\Zwift\\Logs\\Log.txt"
+--log_default =  os.getenv("HOMEDRIVE") .. os.getenv("HOMEPATH").."\\Documents\\Zwift\\Logs\\Log.txt"
 end_of_file = 0
 file_check_sleep_time = 5
 release_ride_on_interval = 1
@@ -88,8 +89,8 @@ sub_group_name = ""
 -- Set the ride On giver name text, update the ride on count and total Ride Ons given
 function set_ride_on_text(tt)
     source_values = { [ride_on_names_source_name] = tt,
-        [current_route_source_name] = current_route, 
-        [route_stats_source_name] = route_stats, 
+        [current_route_source_name] = current_route,
+        [route_stats_source_name] = route_stats,
         [ride_on_count_source_name] = ride_on_count,
         [total_ride_ons_given_source_name] = total_ride_ons_given,
         [lap_count_source_name] = lap_count,
@@ -99,10 +100,10 @@ function set_ride_on_text(tt)
         [sub_group_source_name] = sub_group_name
     }
 
-    for sn, sv in pairs (source_values) do 
+    for sn, sv in pairs (source_values) do
         local source = obs.obs_get_source_by_name(sn)
 	    if source ~= nil then
-            if sn == ride_on_names_source_name then 
+            if sn == ride_on_names_source_name then
                 local latest_ride_on = sv
                 if latest_ride_on ~= last_ride_on or latest_ride_on == "" then
                     local settings = obs.obs_data_create()
@@ -184,7 +185,7 @@ function activate(activating)
 		   	obs.timer_remove(file_check_callback)
 			obs.timer_remove(release_ride_on_callback)
         end
-    end   
+    end
 end
 
 
@@ -219,7 +220,7 @@ function script_properties()
 	if sources ~= nil then
 		for _, source in ipairs(sources) do
 			local source_id = obs.obs_source_get_unversioned_id(source)
-			if source_id ~= nil then 
+			if source_id ~= nil then
 				if source_id == "text_gdiplus" or source_id == "text_ft2_source" then
 					local name = obs.obs_source_get_name(source)
 					obs.obs_property_list_add_string(p, name, name)
@@ -289,19 +290,20 @@ function script_update(settings)
 	include_group_event_chat = obs.obs_data_get_bool(settings, "include_group_event_chat")
     group_event_source_name = obs.obs_data_get_string(settings, "group_event_source_name")
     sub_group_source_name = obs.obs_data_get_string(settings, "sub_group_source_name")
-    
+
     enabled = obs.obs_data_get_bool(settings, "enabled")
 
 	if obs.obs_data_get_string(settings, "log_file_location") ~= "" then
 		log_directory = obs.obs_data_get_string(settings, "log_file_location")
 	else
-		log_directory = log_default
+		log_directory = set_log_default()
+
 	end
-	
+
 	update_chat_types(include_world_chat, include_paddock_chat, include_group_event_chat)
-	
+
 	reset(true)
-	
+
 end
 
 
@@ -367,7 +369,7 @@ function get_ride_ons()
                 end
 			elseif string.match(line, "Route stats: ") then
 				local i, j = string.find(line, "%d*%d.?%d+cm long")
-                if i ~= nil then 
+                if i ~= nil then
                     route_length = string.sub(line, i,j-7)
                     route_length_kilometers = round(route_length/100000,2)
                 end
@@ -378,38 +380,38 @@ function get_ride_ons()
                 end
                 local m, n = string.find(line, "%d*%d.?%d+cm ascent")
                     route_ascent = string.sub(line, m,n-9)
-                if m ~= nil then 
+                if m ~= nil then
                     route_ascent_meters = round(route_ascent/100, 0)
                 end
-     
+
                 route_stats = "Length: "..route_length_kilometers.."km\nLead-in: "..route_leadin_kilometers.."km\nAscent: "..route_ascent_meters.."m"
 
 
 			elseif string.match(line, "Chat: ") then
-				for c_offset, c_type in pairs(chat_types) do 
+				for c_offset, c_type in pairs(chat_types) do
 					ct = string.match(line, c_type)
-					if ct ~= nil then 
+					if ct ~= nil then
 						local i, j = string.find(line, c_type)
 						local chat_user_id = string.sub(line, i+1, j - c_offset)
 						local k, l = string.find(line,"Chat: .-%s%d+%s%(")
-                   		if k ~= nil then   
+                   		if k ~= nil then
 							chat_user_name = string.gsub(string.sub(line, k+6, l), "%s%d+%s%($", "")
-							if chat_user_name == nil then 
-								chat_user_name = chat_user_id	
+							if chat_user_name == nil then
+								chat_user_name = chat_user_id
 							end
-						else 
+						else
 							chat_user_name = chat_user_id
-						end   
+						end
 						local m, n = string.find(line, c_type)
 						local chat_message = string.sub(line, n+1)
                	    	if chat_user_ids ~= "" then
                         	if string.match(chat_user_ids, chat_user_id) then
 					    		chat_text = chat_text..chat_user_name..": "..chat_message.."\n"
 					    		chat_count = chat_count + 1
-					    	end 
+					    	end
                     	else
 					    	chat_text = chat_text..chat_user_name..": "..chat_message.."\n"
-                        	chat_count = chat_count + 1 
+                        	chat_count = chat_count + 1
                     	end
 					end
 				end
@@ -423,19 +425,19 @@ function get_ride_ons()
 			elseif string.match(line, "TIMING ARCH:") then
 				local i, j = string.find(line, "in %d+%.%d+%s%a+")
 				local k, l = string.find(line, "%s%(avg watts %d+%.%d+%)")
-                if i ~= nil and k ~= nil then 
+                if i ~= nil and k ~= nil then
 					comp_time = string.sub(line, i+3, j-8)
                     comp_time = get_formatted_time(comp_time)
                     comp_avg_power = string.sub(line, k+2, l-1)
                 end
                 	segment_comp = "Timing Arch: "..arch_name.." in "..comp_time.." @ "..comp_avg_power.."\n"
-            elseif string.match(line, 'for group %"') then 
-                local i, j = string.find(line, 'for group "([^"]+)"') 
+            elseif string.match(line, 'for group %"') then
+                local i, j = string.find(line, 'for group "([^"]+)"')
                 local k, l = string.find(line, 'subgroup "([^"]+)"')
                 if i ~= nil then
-                    group_event_name = string.sub(line, i+11, j-1)  
+                    group_event_name = string.sub(line, i+11, j-1)
                 end
-                if k~= nil then 
+                if k~= nil then
                     sub_group_name = string.sub(line, k+10, l-1)
                 end
             end
@@ -516,34 +518,48 @@ function get_formatted_time(s)
     secs = math.floor(s - ((hours*3600) + (mins*60)))
     hsecs = (s*100 - (((hours*3600)*100) + ((mins*60)*100) + (secs*100))) % 100
 
-    if hours < 1 and mins > 1 then 
+    if hours < 1 and mins > 1 then
 		formatted_time = string.format("%02.f", mins)..":"..string.format("%02.f",secs).."."..string.format("%02.f", hsecs)
 	elseif hours < 1 and mins < 1 then
         formatted_time = string.format("%02.f", secs).."."..string.format("%02.f", hsecs)
     else
         formatted_time = string.format("%02.f", hours)..":"..string.format("%02.f",mins)..":"..string.format("%02.f",secs).."."..string.format("%02.f", hsecs)
 	end
-	
+
 	return formatted_time
-end	
+end
 
 -- called on script update and adds patterns to table for matching chat types indexes are set to the offsets needed to get the value before it.
 function update_chat_types(w, p, g)
-	if w ~= true then 
-		chat_types[10] = nil	
+	if w ~= true then
+		chat_types[10] = nil
 	else
-		chat_types[10] = "%s%d+%s%(World%): " 
+		chat_types[10] = "%s%d+%s%(World%): "
 	end
-	
-	if p ~= true then 
+
+	if p ~= true then
 		chat_types[12] = nil
 	else
 		chat_types[12] = "%s%d+%s%(Paddock%): "
 	end
 
-	if g ~= true then 
+	if g ~= true then
 		chat_types[15] = nil
-	else 
+	else
 		chat_types[15] = "%s%d+%s%(GroupEvent%): "
 	end
+end
+
+--Sets the default log location so as not to fail in Mac OS - thanks leventyalcin
+
+function set_log_default()
+    local p
+     if os.getenv("ZWIFT_LOG_PATH") ~= nil and os.getenv("ZWIFT_LOG_PATH") ~= '' then
+        p = os.getenv("ZWIFT_LOG_PATH")
+    elseif os.getenv("HOMEDRIVE") ~= nil  and os.getenv("HOMEDRIVE") ~= '' then
+        p = os.getenv("HOMEDRIVE")..os.getenv("HOMEPATH").."\\Documents\\Zwift\\Logs\\Log.txt"
+    else
+        p = os.getenv("HOME").."/Documents/Zwift/Logs/Log.txt"
+    end
+    return p
 end

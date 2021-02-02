@@ -34,3 +34,4 @@ Updated Since version 0.21
 -- 0.28 - Added parsing for group event name and name of subgroup
 -- 0.29 - Added mitigation if obs_source_get_unversioned_id returns nil
 -- 0.30 - Added logic for setting default log file location to avoid script failing on MacOS
+-- 0.31 - Fixed Ride on count and names for Italian language

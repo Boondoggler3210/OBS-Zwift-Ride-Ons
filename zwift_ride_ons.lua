@@ -29,6 +29,7 @@
 -- 0.28 Matt Page 08/07/2020 - Added parsing for group event name and name of subgroup
 -- 0.29 Matt Page 09/07/2020 - Added mitigation for when obs_source_get_unversioned_id returns a nil
 -- 0.30 Matt Page 06/01/2021 - Added logic for setting the default log file location to avoid failure on MacOS - thanks leventyalcin
+-- 0.31 Matt Page 02/02/2021 - Added logic to handle ride ons and ride on names for users with Italian Language
 
 -- Add script to OBS studio - parses the Zwift log file recording received ride ons.
 -- log file directory and other parameters can be updated via OBS studio UI
@@ -331,13 +332,33 @@ function get_ride_ons()
 				break
 			elseif string.match(line,'HUD_Notify: ') then
 				if string.match(line, 'Ride On!.-$') then
-                    local i, j = string.find(line, "HUD_Notify: .- says Ride On!")
-                    if i ~= nil then
-                        ride_on_giver = string.sub(line, i+12, j-14)
-                        ride_on_giver = ride_on_giver..ride_on_name_suffix
-                        table.insert(ride_ons,ride_on_giver)
-                        ride_on_count = ride_on_count + 1
+				    ride_on_count = ride_on_count + 1
+                    if string.match(line, ' says Ride On!') then
+					    local i, j = string.find(line, "HUD_Notify: .- says Ride On!")
+                        if i ~= nil then
+					        ride_on_giver = string.sub(line, i+12, j-14)
+
+   						    ride_on_giver = ride_on_giver..ride_on_name_suffix
+
+                            table.insert(ride_ons,ride_on_giver)
+
+						end
+
+					elseif string.match(line, ' ti ha dato un Ride On!') then
+						local i, j = string.find(line, "HUD_Notify: .- un Ride On!")
+
+						if i ~= nil then
+   						    ride_on_giver = string.sub(line, i+12, j-23)
+
+							ride_on_giver = ride_on_giver..ride_on_name_suffix
+
+                            table.insert(ride_ons,ride_on_giver)
+
+						end
+
                     end
+
+
                 end
 			elseif string.match(line, "Total Ride Ons Given: ") then
 				local i, j = string.find(line, "Total Ride Ons Given: ")

@@ -30,6 +30,7 @@
 -- 0.29 Matt Page 09/07/2020 - Added mitigation for when obs_source_get_unversioned_id returns a nil
 -- 0.30 Matt Page 06/01/2021 - Added logic for setting the default log file location to avoid failure on MacOS - thanks leventyalcin
 -- 0.31 Matt Page 02/02/2021 - Added logic to handle ride ons and ride on names for users with Italian Language
+-- 0.32 Matt Page 24/02/2021 - Fixed the check for avg power on TIMING Arch rows - thanks arckuk
 
 -- Add script to OBS studio - parses the Zwift log file recording received ride ons.
 -- log file directory and other parameters can be updated via OBS studio UI
@@ -450,9 +451,9 @@ function get_ride_ons()
 					comp_time = string.sub(line, i+3, j-8)
                     comp_time = get_formatted_time(comp_time)
                     comp_avg_power = string.sub(line, k+2, l-1)
-                end
-                	segment_comp = "Timing Arch: "..arch_name.." in "..comp_time.." @ "..comp_avg_power.."\n"
-            elseif string.match(line, 'for group %"') then
+                   	segment_comp = "Timing Arch: "..arch_name.." in "..comp_time.." @ "..comp_avg_power.."\n"
+				end
+			elseif string.match(line, 'for group %"') then
                 local i, j = string.find(line, 'for group "([^"]+)"')
                 local k, l = string.find(line, 'subgroup "([^"]+)"')
                 if i ~= nil then
